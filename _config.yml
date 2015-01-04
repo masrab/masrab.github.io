@@ -11,12 +11,11 @@ highlighter:      pygments
 title:            Masoud Rabiei's Blog
 tagline:          Data science and beyond
 url:              http://www.masrab.com
-paginate:         2
+paginate:         1
 
 author:
   name:           'Masoud Rabiei'
-  url:            http://masrab.com
+  url:            http://www.masrab.com
 
 # Custom vars
-version:          1.0
 github:           https://github.com/masrab
