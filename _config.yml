@@ -1,6 +1,6 @@
 # Permalinks
 # permalink:        pretty
-permalink:        /blog/:year/:month/:day/:title
+permalink:        /blog/:title
 # relative_permalinks: true
 baseurl:          '/'
 
