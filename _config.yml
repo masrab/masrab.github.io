@@ -1,0 +1,22 @@
+# Permalinks
+# permalink:        pretty
+permalink:        /blog/:year/:month/:day/:title
+# relative_permalinks: true
+baseurl:          '/'
+
+markdown:         redcarpet
+highlighter:      pygments
+
+# Setup
+title:            Masoud Rabiei's Blog
+tagline:          Data science and beyond
+url:              http://www.masrab.com
+paginate:         2
+
+author:
+  name:           'Masoud Rabiei'
+  url:            http://masrab.com
+
+# Custom vars
+version:          1.0
+github:           https://github.com/masrab
