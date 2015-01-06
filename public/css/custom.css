@@ -1,3 +1,7 @@
+/*
+Customizied CSS for masrab.github.io
+*/
+
 html {
 	font-family: "PT Serif", Georgia, "Times New Roman", serif;
 	font-size: 16px;
@@ -15,23 +19,32 @@ body {
 
 .container {
   max-width: 960px;
-  /*background-color: beige;*/
   position: relative;
   padding-left:  1rem;
   /*padding-right: 1rem;*/
-  padding-right: 20%;
+  padding-right: 20%;  
   margin-left:  auto;
   margin-right: auto;
 }
 
+
 h1, h2, h3, h4, h5, h6 {
 	font-family: "PT Sans", Helvetica, Arial, sans-serif;
 	font-weight: 400;
-	/*color: #313131;*/
   color: #000;
 	letter-spacing: -.025rem;
 }
 
+h1 {
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-size: 2rem;
+}
+h3 {
+  font-size: 1.5rem;
+}
 
 p {
 	color: #333;
@@ -47,8 +60,12 @@ a:focus {
 }
 
 
+.masthead a:hover,
+.masthead a:focus {
+  text-decoration: underline;
+}
+
 article aside{
-  /*font-size: small;*/
   font-size: 0.75rem;
   font-family: "PT Sans", sans-serif;
   right: 5px;
@@ -63,6 +80,7 @@ article aside{
 table {
    width: initial;
 }
+
 
 svg {
   font: 10px sans-serif;

@@ -1,16 +1,15 @@
 # Permalinks
 # permalink:        pretty
 permalink:        /blog/:title
-# relative_permalinks: true
 baseurl:          '/'
 
 markdown:         redcarpet
 highlighter:      pygments
 
 # Setup
-title:            Masoud Rabiei's Blog
+title:            Masoud Rabiei
 tagline:          Data science and beyond
-url:              http://www.masrab.com
+url:              http://masrab.github.io
 paginate:         1
 
 author:
@@ -19,3 +18,7 @@ author:
 
 # Custom vars
 github:           https://github.com/masrab
+pages_list:       
+  About: '/about'
+  Archive: '/archive'
+  Feed: '/atom.xml'

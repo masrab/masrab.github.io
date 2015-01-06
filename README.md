@@ -1,4 +1,4 @@
 masrab.github.io
 ================
 
-masrab website
+This is the repository for my blog: masrab.github.io
