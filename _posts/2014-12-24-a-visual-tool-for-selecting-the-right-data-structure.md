@@ -14,14 +14,14 @@ I have created a simple tool (that I am calling [Big-O Selector](/bigoselector/)
 
 [![Big-O Selector screenshot](/images/big-o-selector.png "Big-O Selector")](/bigoselector/)
 
-I am using a [Parrallel coordinates](http://en.wikipedia.org/wiki/Parallel_coordinates) plot to visualize the supported operations by data structures. Each coordinate represents one of the operations and each line (linking these operations) represents one data structure. Visualizing data structures in this way makes it very easy to see how each data structure ranks among others in terms of each of the supported operations. Head over to [Big-O Selector](/bigoselector/) and play with it yourself. 
+I am using a [Parrallel coordinates](http://en.wikipedia.org/wiki/Parallel_coordinates) plot to visualize the supported operations by data structures. Each coordinate represents one of the operations and each line connects the operations supported by a given data structure.
+
+Visualizing data structures in this way makes it very easy to see how each data structure ranks among others with respect to each operation. Head over to [Big-O Selector](/bigoselector/) and play with it yourself. 
 
 
 ## Getting the Data
 
-I got it from here.
 I used Python to scrape the data.
 
 ## D3 Implementation
 
-It was cool!
