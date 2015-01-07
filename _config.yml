@@ -3,7 +3,7 @@
 permalink:        /blog/:title
 baseurl:          '/'
 
-# markdown:         redcarpet
+markdown:         kramdown
 highlighter:      pygments
 
 # Setup
