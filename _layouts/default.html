@@ -2,7 +2,7 @@
 <html lang="en">
 
 {% include head.html %}
-
+{% include ga.html %}
 <body>
 
   <div class="container content">
@@ -19,6 +19,8 @@
 
     <main>
       {{ content }}
+
+      {% include comments.html %}
     </main>
 
     <footer class="footer">

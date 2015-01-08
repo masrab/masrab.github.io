@@ -2,6 +2,7 @@
 layout: post
 title: A Visual Tool for Selecting the Right Data Structure
 permalink: /blog/selecting-the-right-data-structure
+comments: True
 ---
 
 One of the first decisions every programmer has to make is *how to represent the data?* The answer, of course, depends on a lot of factors including the operations that will be performed on the data. A [data structure](http://en.wikipedia.org/wiki/Data_structure) is a particular way of organizing data in a computer so that it can be used efficiently. For example, if an applications requires lots of lookup by key operations a [Hash Table](http://en.wikipedia.org/wiki/Hash_table) could be a great option and if all you need is simple indexing you could use an [Array](http://en.wikipedia.org/wiki/Array_data_structure) instead.
@@ -50,5 +51,4 @@ D3 provides helper functions to convert tabular data (e.g. in CVS format) to pro
 ## D3 Implementation
 
 This is not D3 tutorial but at a high level, I took the following step to create the visualization:
-
 
