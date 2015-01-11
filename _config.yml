@@ -1,5 +1,4 @@
 # Permalinks
-# permalink:        pretty
 permalink:        /blog/:title
 baseurl:          '/'
 
