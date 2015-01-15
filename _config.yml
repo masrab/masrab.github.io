@@ -9,7 +9,6 @@ highlighter:      pygments
 title:            Masoud Rabiei
 tagline:          Data science and beyond
 url:              http://masrab.github.io
-paginate:         1
 
 author:
   name:           'Masoud Rabiei'
@@ -17,6 +16,7 @@ author:
 
 # Custom vars
 github:           https://github.com/masrab
+home_posts:       1
 pages_list:       
   About: '/about'
   Archive: '/archive'

@@ -4,7 +4,7 @@ title: Home
 ---
 
 <div class="posts">
-  {% for post in paginator.posts %}
+  {% for post in site.posts limit:site.home_posts %}
   <article class="post">
     <h1 class="post-title">
       <a href="{{ post.url }}">
@@ -19,6 +19,7 @@ title: Home
 
   </article>
   {% endfor %}
+
 </div>
 <section id="recent-posts">
   <h3>Recent posts</h3>
