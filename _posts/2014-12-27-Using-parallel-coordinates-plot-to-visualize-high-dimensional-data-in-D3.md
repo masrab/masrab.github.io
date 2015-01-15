@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Using Parallel Coordinates Plot to Visualize High Dimensional Data in D3
+title: Parallel Coordinates Plot in D3
 permalink: /blog/prallel-coordinates-plot-d3
 comments: True
 ---

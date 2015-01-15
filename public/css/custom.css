@@ -43,6 +43,16 @@ h1, h2, h3, h4, h5, h6 {
   color: #000;
 }
 
+.page,
+.post {
+  margin-bottom: 3em;
+}
+
+
+#recent-posts {
+  margin-bottom: 3rem;
+}
+
 h1 {
   font-size: 3rem;
 }
