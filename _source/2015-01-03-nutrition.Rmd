@@ -1,0 +1,191 @@
+---
+layout: post
+title: Cuisine From Which Countries Are Most Similar?
+permalink: /blog/analysing-public-recipe-data-in-R
+comments: True
+---
+```{r}
+library(knitr)
+library(dendextend)
+library(tm)
+library(tidyr)
+library(ggplot2)
+library(d3Network)
+library(dplyr)
+```
+
+```{r}
+
+dat <- readLines("~/projects/nutrition/scirep-cuisines-detail/epic_recipes.txt") %>%
+  strsplit(split = "\t")
+
+cuisine <- sapply(dat, function(x) x[1])
+ingredients <- sapply(dat, function(x) paste(x[-1],collapse = " ")) 
+
+cuisine_names <- cuisine %>% unique
+names(cuisine_names) <- cuisine_names
+
+food <- sapply(cuisine_names, function(x){
+  
+  ingredients[cuisine == x] %>% paste(collapse = " ")
+  
+  })
+```
+
+
+```{r}
+
+food_dtm = VectorSource(food) %>% VCorpus %>% DocumentTermMatrix
+
+food_df <- data.frame(cuisine = cuisine_names, stringsAsFactors=FALSE, row.names=NULL) %>% 
+  cbind(as.matrix(food_dtm)) %>% tbl_df
+```
+
+## Looking at the Data
+```{r}
+
+
+food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
+
+food_tall <- food_tall %>% group_by(cuisine) %>% 
+  mutate(rank = min_rank(desc(count)))
+```
+
+Just an example:
+
+```{r}
+
+# top N ingredients
+food_tall %>% filter(rank<=20) %>% ggplot +
+geom_tile(aes(ingredient, cuisine, fill = rank)) +
+scale_fill_gradient(low="gold", high="red") +
+theme_bw() +
+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
+panel.grid = element_blank())
+```
+
+
+```{r, results='asis'}
+# top ingredients
+food_tall %>% filter(rank<=5) %>% arrange(cuisine, rank) %>% kable
+```
+
+
+```{r, results='asis'}
+# Number of unique ingredients
+food_tall %>% summarise(unique_ingredients = sum(count>0)) %>% 
+  arrange(desc(unique_ingredients)) %>% kable
+# add plot
+```
+
+## Hierarchical Clustering
+Without standardizing:
+
+```{r}
+norm_rows <- function(mat){
+mat / rowSums(mat)
+}
+
+hc <- data.frame(food_df, row.names = "cuisine")
+
+# without standardizing
+hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "")
+```
+
+We need to standardize rows prior to calculating dissimilarity:
+
+```{r}
+# need to standardize rows prior to calculating dissimilarity
+d <- hc %>% 
+norm_rows %>%
+dist
+
+#hclust(d) %>% plot(hang= -1)
+
+food_dend <- hclust(d) %>% as.dendrogram
+
+num_clusters <- 4
+food_dend %>% set("branches_k_color", k = num_clusters) %>% plot
+
+# add bounding boxes
+food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2)
+
+```
+
+## D3 Forced Network
+
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+```{r}
+create_nodes <- function(d, Group = NULL){
+  # d: dissimilarity matrix with row names
+  if (is.null(Group)) Group <- 1 # all in the same group
+  
+  nodes <- data.frame(Name = rownames(d), Group = Group)
+  
+  nodes
+  
+  }
+
+
+create_links <- function(d){
+  node_names <- rownames(d)
+  
+  d[upper.tri(d, diag = T)] <- NA
+  links <- as.data.frame.table(d, responseName = "Value", stringsAsFactors = FALSE)
+  colnames(links)[1:2] <- c("Source", "Target")
+  
+  links$Source <- factor(links$Source, levels = node_names) %>% as.numeric %>% "-"(1)
+  links$Target <- factor(links$Target, levels = node_names) %>% as.numeric %>% "-"(1)
+  
+  # get rid of self-links and duplicates
+  links <- links[!is.na(links$Value),] 
+  links
+  }
+
+```
+
+<div id="network1"></div>
+
+```{r, results='asis'}
+nodes <- as.matrix(d) %>% 
+  create_nodes(Group = cutree(food_dend, k = num_clusters))
+
+links <-  as.matrix(d) %>% 
+  create_links
+
+d3ForceNetwork(Links = links, Nodes = nodes, Source = "Source",
+               Target = "Target", Value = "Value", NodeID = "Name",
+               Group = "Group",
+               linkDistance = "function(d) { return 1000 * d.value + 10; }",
+               linkWidth = "function(d) { return 1/(10*d.value); }",
+               charge = -250,
+               opacity = 1, 
+               standAlone = FALSE,
+               parentElement = "div#network1")
+
+```
+
+
+Not very clear. What if we prune?
+```{r}
+links <- links %>% filter(Value < quantile(d,.4))
+```
+
+We now get this:
+
+<div id="network2"></div>
+
+```{r, echo=FALSE, results='asis'}
+d3ForceNetwork(Links = links, Nodes = nodes, Source = "Source",
+               Target = "Target", Value = "Value", NodeID = "Name",
+               Group = "Group",
+               linkDistance = "function(d) { return 1000 * d.value + 10; }",
+               linkWidth = "function(d) { return 1/(10*d.value); }",
+               charge = -250,
+               opacity = 1, 
+               standAlone = FALSE,
+               parentElement = "div#network2")
+```
+
+
