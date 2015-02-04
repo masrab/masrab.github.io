@@ -1,76 +1,83 @@
 ---
 layout: post
-title: Analysing Public Recipe data in R
+title: Analysing Public Recipe Data in R
 permalink: /blog/analysing-public-recipe-data-in-R
 comments: True
 ---
+
+<div class="message">
 Note: You can view the source of this blog post on github. Here I'll highlight some of the code.
+</div>
+We are going to use a publicly available recipe dataset to answer one simple question: **Cuisine from which countries are the most similar?** There are of course various ways to answer this question but here I'll be using a rather simplistic view and focus only on the ingredients used in the recipes attributed to each cuisine type.
 
-In this post I am going to use a publicly available recipe dataset to answer one simple question: Food From Which Countries Are The Most Similar? There are ofcourse various ways to answer this question but here I'll be using a rather simplistic view and focus only on the ingredients that appear in recipes.
-
+## The Dataset
 The dataset we are working with is a collection recipes scraped from `@website` where each record contains the type of the cuisine (e.g. American, French, Chinese) and the ingredients that were used in the recipe.
 
+The data stored in flat text files where each line is one record. here's the first two lines of the raw data file:
 
-Let's load some libraries:
-
-{% highlight r %}
-library(knitr)
-library(dendextend)
-library(tm)
-library(tidyr)
-library(ggplot2)
-library(d3Network)
-library(dplyr)
+{% highlight text %}
+[1] "Vietnamese\tvinegar\tcilantro\tmint\tolive_oil\tcayenne\tfish\tlime_juice\tshrimp\tlettuce\tcarrot\tgarlic\tbasil\tcucumber\trice\tseed\tshiitake"
+[2] "Vietnamese\tonion\tcayenne\tfish\tblack_pepper\tseed\tgarlic"                                                                                     
 {% endhighlight %}
 
-
-The data stored in flat text files where each line is one record:
-
-`@show raw data` 
-
-
-We need to read the data into R and convert it to data frame.
+Before we can use this data in R, we need to read the data into R and convert it to a data frame. First, we combine all the recipes from the same cuisine type together to create a food corpus.
 
 {% highlight r %}
-dat <- readLines("../data/epic_recipes.txt") %>%
-  strsplit(split = "\t")
-
+# read each line
+dat <- readLines("../data/epic_recipes.txt") %>% strsplit(split = "\t")
+# extract cuisine and ingredients
 cuisine <- sapply(dat, function(x) x[1])
 ingredients <- sapply(dat, function(x) paste(x[-1],collapse = " ")) 
-
+# for each cuisine, join together the ingredients from all the recipes
 cuisine_names <- cuisine %>% unique
 names(cuisine_names) <- cuisine_names
-
 food <- sapply(cuisine_names, function(x){
   ingredients[cuisine == x] %>% paste(collapse = " ")
 })
 {% endhighlight %}
 
-
-Convert it into feature matrix. One simple way to create features is to represent each cuisine by the number of times each ingredient has been used in it. This is essentially the standard _bag-of-word_ representation often used in text analytics.
-
+The next step is to create a feature matrix from this corpus. One simple way to create features is to represent each cuisine by the number of times each ingredient has been used in it. This is essentially the standard _bag-of-words_ representation often used in text analytics.
 
 
 {% highlight r %}
+library(tm)
+# convert text corpus to a document term matrix
 food_dtm <- VectorSource(food) %>% VCorpus %>% DocumentTermMatrix
-
+# create a data frame from the document term matrix
 food_df <- data.frame(cuisine = cuisine_names, stringsAsFactors=FALSE, row.names=NULL) %>% 
   cbind(as.matrix(food_dtm)) %>% tbl_df
 {% endhighlight %}
+Here's what the data looks like:
 
-## Looking at the Data
+{% highlight text %}
+Source: local data frame [6 x 7]
 
-{% highlight r %}
-food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
-
-food_tall <- food_tall %>% group_by(cuisine) %>% 
-  mutate(rank = min_rank(desc(count)))
+                cuisine almond anise anise_seed apple apple_brandy apricot
+1            Vietnamese      0     0          0     0            0       0
+2                Indian      8     0          2     6            0       6
+3    Spanish_Portuguese     27     1          3     3            0       1
+4                Jewish     31     0          1    28            0      21
+5                French     65    12          6    39           10      16
+6 Central_SouthAmerican     13     0          5     0            0       0
 {% endhighlight %}
 
+The data is currently in what is known as "wide" format (i.e. each feature is represented as one column). To make our lives easier later on (when plotting the data), let's create a "tall" version of the data as well: 
+
+
+{% highlight r %}
+library(tidyr)
+# "wide" --> "tall"
+food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
+{% endhighlight %}
+
+## Looking at the Data
 Once we have the feature matrix, we can use that to find the top ingredients used in each type of food?
   
 
 {% highlight r %}
+# calculate the ranking of each ingredient for each cuisine type
+food_tall <- food_tall %>% group_by(cuisine) %>% 
+  mutate(rank = min_rank(desc(count)))
 # top N ingredients
 food_tall %>% filter(rank<=20) %>% ggplot +
   geom_tile(aes(ingredient, cuisine, fill = rank)) +
@@ -80,156 +87,71 @@ food_tall %>% filter(rank<=20) %>% ggplot +
         panel.grid = element_blank())
 {% endhighlight %}
 
-![center](/../images/2015-01-03-nutrition/unnamed-chunk-5-1.png) 
+![center](/../images/2015-01-03-nutrition/unnamed-chunk-7-1.png) 
 
 
 
 {% highlight r %}
 # top ingredients
-food_tall %>% filter(rank<=5) %>% arrange(cuisine, rank) %>% kable
+food_tall %>% filter(rank<=2) %>% arrange(cuisine, rank) %>% kable
 {% endhighlight %}
 
 
 
-|cuisine                 |ingredient      | count| rank|
-|:-----------------------|:---------------|-----:|----:|
-|African                 |onion           |    61|    1|
-|African                 |olive_oil       |    60|    2|
-|African                 |garlic          |    57|    3|
-|African                 |cumin           |    49|    4|
-|African                 |cayenne         |    41|    5|
-|American                |butter          |  2219|    1|
-|American                |egg             |  1738|    2|
-|American                |wheat           |  1574|    3|
-|American                |olive_oil       |  1512|    4|
-|American                |garlic          |  1267|    5|
-|Asian                   |soy_sauce       |   588|    1|
-|Asian                   |ginger          |   576|    2|
-|Asian                   |garlic          |   565|    3|
-|Asian                   |rice            |   482|    4|
-|Asian                   |scallion        |   453|    5|
-|Cajun_Creole            |onion           |   102|    1|
-|Cajun_Creole            |cayenne         |    82|    2|
-|Cajun_Creole            |garlic          |    71|    3|
-|Cajun_Creole            |butter          |    53|    4|
-|Cajun_Creole            |bell_pepper     |    50|    5|
-|Cajun_Creole            |vegetable_oil   |    50|    5|
-|Central_SouthAmerican   |garlic          |   137|    1|
-|Central_SouthAmerican   |onion           |   131|    2|
-|Central_SouthAmerican   |cayenne         |   125|    3|
-|Central_SouthAmerican   |tomato          |   100|    4|
-|Central_SouthAmerican   |corn            |    79|    5|
-|Chinese                 |soy_sauce       |   150|    1|
-|Chinese                 |ginger          |   140|    2|
-|Chinese                 |garlic          |   116|    3|
-|Chinese                 |scallion        |   107|    4|
-|Chinese                 |sesame_oil      |    95|    5|
-|EasternEuropean_Russian |butter          |    88|    1|
-|EasternEuropean_Russian |egg             |    74|    2|
-|EasternEuropean_Russian |wheat           |    72|    3|
-|EasternEuropean_Russian |onion           |    56|    4|
-|EasternEuropean_Russian |cream           |    49|    5|
-|English_Scottish        |butter          |   137|    1|
-|English_Scottish        |wheat           |   127|    2|
-|English_Scottish        |egg             |   109|    3|
-|English_Scottish        |cream           |    84|    4|
-|English_Scottish        |milk            |    72|    5|
-|French                  |butter          |   488|    1|
-|French                  |egg             |   433|    2|
-|French                  |wheat           |   355|    3|
-|French                  |olive_oil       |   307|    4|
-|French                  |garlic          |   272|    5|
-|German                  |butter          |    29|    1|
-|German                  |wheat           |    26|    2|
-|German                  |onion           |    25|    3|
-|German                  |egg             |    22|    4|
-|German                  |milk            |    18|    5|
-|German                  |vinegar         |    18|    5|
-|Greek                   |olive_oil       |   171|    1|
-|Greek                   |garlic          |   100|    2|
-|Greek                   |onion           |    82|    3|
-|Greek                   |lemon_juice     |    76|    4|
-|Greek                   |tomato          |    75|    5|
-|Indian                  |cumin           |   160|    1|
-|Indian                  |coriander       |   128|    2|
-|Indian                  |turmeric        |   127|    3|
-|Indian                  |cayenne         |   125|    4|
-|Indian                  |vegetable_oil   |   120|    5|
-|Irish                   |butter          |    51|    1|
-|Irish                   |wheat           |    43|    2|
-|Irish                   |egg             |    40|    3|
-|Irish                   |cream           |    23|    4|
-|Irish                   |buttermilk      |    22|    5|
-|Irish                   |onion           |    22|    5|
-|Italian                 |olive_oil       |  1124|    1|
-|Italian                 |garlic          |   774|    2|
-|Italian                 |tomato          |   518|    3|
-|Italian                 |parmesan_cheese |   495|    4|
-|Italian                 |onion           |   480|    5|
-|Japanese                |soy_sauce       |    83|    1|
-|Japanese                |rice            |    62|    2|
-|Japanese                |vegetable_oil   |    54|    3|
-|Japanese                |scallion        |    49|    4|
-|Japanese                |ginger          |    48|    5|
-|Japanese                |vinegar         |    48|    5|
-|Jewish                  |egg             |   190|    1|
-|Jewish                  |wheat           |   156|    2|
-|Jewish                  |butter          |    98|    3|
-|Jewish                  |onion           |    97|    4|
-|Jewish                  |vegetable_oil   |    87|    5|
-|Mediterranean           |olive_oil       |   230|    1|
-|Mediterranean           |garlic          |   146|    2|
-|Mediterranean           |onion           |   112|    3|
-|Mediterranean           |tomato          |   101|    4|
-|Mediterranean           |parsley         |    87|    5|
-|Mexican                 |cayenne         |   441|    1|
-|Mexican                 |onion           |   378|    2|
-|Mexican                 |garlic          |   353|    3|
-|Mexican                 |tomato          |   305|    4|
-|Mexican                 |cilantro        |   251|    5|
-|MiddleEastern           |olive_oil       |   149|    1|
-|MiddleEastern           |garlic          |   116|    2|
-|MiddleEastern           |wheat           |    94|    3|
-|MiddleEastern           |lemon_juice     |    89|    4|
-|MiddleEastern           |onion           |    88|    5|
-|Moroccan                |olive_oil       |   100|    1|
-|Moroccan                |cumin           |    75|    2|
-|Moroccan                |onion           |    68|    3|
-|Moroccan                |garlic          |    63|    4|
-|Moroccan                |cinnamon        |    60|    5|
-|Scandinavian            |butter          |    49|    1|
-|Scandinavian            |egg             |    38|    2|
-|Scandinavian            |cream           |    29|    3|
-|Scandinavian            |vinegar         |    29|    3|
-|Scandinavian            |wheat           |    27|    5|
-|Southern_SoulFood       |butter          |   200|    1|
-|Southern_SoulFood       |wheat           |   168|    2|
-|Southern_SoulFood       |egg             |   144|    3|
-|Southern_SoulFood       |corn            |   103|    4|
-|Southern_SoulFood       |onion           |   100|    5|
-|Southwestern            |cayenne         |    88|    1|
-|Southwestern            |garlic          |    67|    2|
-|Southwestern            |onion           |    66|    3|
-|Southwestern            |cilantro        |    56|    4|
-|Southwestern            |olive_oil       |    43|    5|
-|Southwestern            |tomato          |    43|    5|
-|Spanish_Portuguese      |olive_oil       |   183|    1|
-|Spanish_Portuguese      |garlic          |   167|    2|
-|Spanish_Portuguese      |onion           |   126|    3|
-|Spanish_Portuguese      |bell_pepper     |   100|    4|
-|Spanish_Portuguese      |tomato          |    95|    5|
-|Thai                    |garlic          |    93|    1|
-|Thai                    |fish            |    89|    2|
-|Thai                    |cayenne         |    77|    3|
-|Thai                    |coriander       |    69|    4|
-|Thai                    |cilantro        |    67|    5|
-|Thai                    |vegetable_oil   |    67|    5|
-|Vietnamese              |fish            |    51|    1|
-|Vietnamese              |garlic          |    47|    2|
-|Vietnamese              |rice            |    31|    3|
-|Vietnamese              |vegetable_oil   |    31|    3|
-|Vietnamese              |cayenne         |    30|    5|
-|Vietnamese              |lime_juice      |    30|    5|
+|cuisine                 |ingredient | count| rank|
+|:-----------------------|:----------|-----:|----:|
+|African                 |onion      |    61|    1|
+|African                 |olive_oil  |    60|    2|
+|American                |butter     |  2219|    1|
+|American                |egg        |  1738|    2|
+|Asian                   |soy_sauce  |   588|    1|
+|Asian                   |ginger     |   576|    2|
+|Cajun_Creole            |onion      |   102|    1|
+|Cajun_Creole            |cayenne    |    82|    2|
+|Central_SouthAmerican   |garlic     |   137|    1|
+|Central_SouthAmerican   |onion      |   131|    2|
+|Chinese                 |soy_sauce  |   150|    1|
+|Chinese                 |ginger     |   140|    2|
+|EasternEuropean_Russian |butter     |    88|    1|
+|EasternEuropean_Russian |egg        |    74|    2|
+|English_Scottish        |butter     |   137|    1|
+|English_Scottish        |wheat      |   127|    2|
+|French                  |butter     |   488|    1|
+|French                  |egg        |   433|    2|
+|German                  |butter     |    29|    1|
+|German                  |wheat      |    26|    2|
+|Greek                   |olive_oil  |   171|    1|
+|Greek                   |garlic     |   100|    2|
+|Indian                  |cumin      |   160|    1|
+|Indian                  |coriander  |   128|    2|
+|Irish                   |butter     |    51|    1|
+|Irish                   |wheat      |    43|    2|
+|Italian                 |olive_oil  |  1124|    1|
+|Italian                 |garlic     |   774|    2|
+|Japanese                |soy_sauce  |    83|    1|
+|Japanese                |rice       |    62|    2|
+|Jewish                  |egg        |   190|    1|
+|Jewish                  |wheat      |   156|    2|
+|Mediterranean           |olive_oil  |   230|    1|
+|Mediterranean           |garlic     |   146|    2|
+|Mexican                 |cayenne    |   441|    1|
+|Mexican                 |onion      |   378|    2|
+|MiddleEastern           |olive_oil  |   149|    1|
+|MiddleEastern           |garlic     |   116|    2|
+|Moroccan                |olive_oil  |   100|    1|
+|Moroccan                |cumin      |    75|    2|
+|Scandinavian            |butter     |    49|    1|
+|Scandinavian            |egg        |    38|    2|
+|Southern_SoulFood       |butter     |   200|    1|
+|Southern_SoulFood       |wheat      |   168|    2|
+|Southwestern            |cayenne    |    88|    1|
+|Southwestern            |garlic     |    67|    2|
+|Spanish_Portuguese      |olive_oil  |   183|    1|
+|Spanish_Portuguese      |garlic     |   167|    2|
+|Thai                    |garlic     |    93|    1|
+|Thai                    |fish       |    89|    2|
+|Vietnamese              |fish       |    51|    1|
+|Vietnamese              |garlic     |    47|    2|
 
 If we use the number of unique ingredients used in different cuisine as a measure of _complexity_, we see that `@ABC` is the most complex and `@BAC` has the simplest recipies. 
 
@@ -292,7 +214,7 @@ hc <- data.frame(food_df, row.names = "cuisine")
 hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "")
 {% endhighlight %}
 
-![center](/../images/2015-01-03-nutrition/unnamed-chunk-8-1.png) 
+![center](/../images/2015-01-03-nutrition/unnamed-chunk-10-1.png) 
 
 We need to be careful when using Euclidean distance to measure similarity. We need to standardize rows prior to calculating dissimilarity:
   
@@ -314,7 +236,7 @@ food_dend %>% set("branches_k_color", k = num_clusters) %>% plot
 food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2)
 {% endhighlight %}
 
-![center](/../images/2015-01-03-nutrition/unnamed-chunk-9-1.png) 
+![center](/../images/2015-01-03-nutrition/unnamed-chunk-11-1.png) 
 
 ## D3 Forced Network
 

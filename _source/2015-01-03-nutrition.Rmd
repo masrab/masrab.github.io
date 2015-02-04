@@ -1,75 +1,75 @@
 ---
 layout: post
-title: Analysing Public Recipe data in R
+title: Analysing Public Recipe Data in R
 permalink: /blog/analysing-public-recipe-data-in-R
 comments: True
 ---
-Note: You can view the source of this blog post on github. Here I'll highlight some of the code.
-
-In this post I am going to use a publicly available recipe dataset to answer one simple question: Food From Which Countries Are The Most Similar? There are ofcourse various ways to answer this question but here I'll be using a rather simplistic view and focus only on the ingredients that appear in recipes.
-
-The dataset we are working with is a collection recipes scraped from `@website` where each record contains the type of the cuisine (e.g. American, French, Chinese) and the ingredients that were used in the recipe.
-
-
-Let's load some libraries:
-```{r}
+```{r, echo=FALSE}
 library(knitr)
 library(dendextend)
-library(tm)
 library(tidyr)
 library(ggplot2)
 library(d3Network)
 library(dplyr)
 ```
+<div class="message">
+Note: You can view the source of this blog post on github. Here I'll highlight some of the code.
+</div>
+We are going to use a publicly available recipe dataset to answer one simple question: **Cuisine from which countries are the most similar?** There are of course various ways to answer this question but here I'll be using a rather simplistic view and focus only on the ingredients used in the recipes attributed to each cuisine type.
 
+## The Dataset
+The dataset we are working with is a collection recipes scraped from `@website` where each record contains the type of the cuisine (e.g. American, French, Chinese) and the ingredients that were used in the recipe.
 
-The data stored in flat text files where each line is one record:
+The data stored in flat text files where each line is one record. here's the first two lines of the raw data file:
+```{r, echo=FALSE}
+readLines("../data/epic_recipes.txt") %>% head(2)
+```
 
-`@show raw data` 
-
-
-We need to read the data into R and convert it to data frame.
+Before we can use this data in R, we need to read the data into R and convert it to a data frame. First, we combine all the recipes from the same cuisine type together to create a food corpus.
 ```{r}
-dat <- readLines("../data/epic_recipes.txt") %>%
-  strsplit(split = "\t")
-
+# read each line
+dat <- readLines("../data/epic_recipes.txt") %>% strsplit(split = "\t")
+# extract cuisine and ingredients
 cuisine <- sapply(dat, function(x) x[1])
 ingredients <- sapply(dat, function(x) paste(x[-1],collapse = " ")) 
-
+# for each cuisine, join together the ingredients from all the recipes
 cuisine_names <- cuisine %>% unique
 names(cuisine_names) <- cuisine_names
-
 food <- sapply(cuisine_names, function(x){
   ingredients[cuisine == x] %>% paste(collapse = " ")
 })
 ```
 
-
-Convert it into feature matrix. One simple way to create features is to represent each cuisine by the number of times each ingredient has been used in it. This is essentially the standard _bag-of-word_ representation often used in text analytics.
-
+The next step is to create a feature matrix from this corpus. One simple way to create features is to represent each cuisine by the number of times each ingredient has been used in it. This is essentially the standard _bag-of-words_ representation often used in text analytics.
 
 ```{r}
-
+library(tm)
+# convert text corpus to a document term matrix
 food_dtm <- VectorSource(food) %>% VCorpus %>% DocumentTermMatrix
-
+# create a data frame from the document term matrix
 food_df <- data.frame(cuisine = cuisine_names, stringsAsFactors=FALSE, row.names=NULL) %>% 
   cbind(as.matrix(food_dtm)) %>% tbl_df
 ```
-
-## Looking at the Data
-```{r}
-
-
-food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
-
-food_tall <- food_tall %>% group_by(cuisine) %>% 
-  mutate(rank = min_rank(desc(count)))
+Here's what the data looks like:
+```{r,echo=FALSE}
+head(food_df[,1:7])
 ```
 
+The data is currently in what is known as "wide" format (i.e. each feature is represented as one column). To make our lives easier later on (when plotting the data), let's create a "tall" version of the data as well: 
+
+```{r}
+library(tidyr)
+# "wide" --> "tall"
+food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
+```
+
+## Looking at the Data
 Once we have the feature matrix, we can use that to find the top ingredients used in each type of food?
   
 ```{r}
-
+# calculate the ranking of each ingredient for each cuisine type
+food_tall <- food_tall %>% group_by(cuisine) %>% 
+  mutate(rank = min_rank(desc(count)))
 # top N ingredients
 food_tall %>% filter(rank<=20) %>% ggplot +
   geom_tile(aes(ingredient, cuisine, fill = rank)) +
@@ -82,7 +82,7 @@ food_tall %>% filter(rank<=20) %>% ggplot +
 
 ```{r, results='asis'}
 # top ingredients
-food_tall %>% filter(rank<=5) %>% arrange(cuisine, rank) %>% kable
+food_tall %>% filter(rank<=2) %>% arrange(cuisine, rank) %>% kable
 ```
 
 If we use the number of unique ingredients used in different cuisine as a measure of _complexity_, we see that `@ABC` is the most complex and `@BAC` has the simplest recipies. 
