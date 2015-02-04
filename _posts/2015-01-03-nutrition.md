@@ -1,9 +1,17 @@
 ---
 layout: post
-title: Cuisine From Which Countries Are Most Similar?
+title: Analysing Public Recipe data in R
 permalink: /blog/analysing-public-recipe-data-in-R
 comments: True
 ---
+Note: You can view the source of this blog post on github. Here I'll highlight some of the code.
+
+In this post I am going to use a publicly available recipe dataset to answer one simple question: Food From Which Countries Are The Most Similar? There are ofcourse various ways to answer this question but here I'll be using a rather simplistic view and focus only on the ingredients that appear in recipes.
+
+The dataset we are working with is a collection recipes scraped from `@website` where each record contains the type of the cuisine (e.g. American, French, Chinese) and the ingredients that were used in the recipe.
+
+
+Let's load some libraries:
 
 {% highlight r %}
 library(knitr)
@@ -16,8 +24,15 @@ library(dplyr)
 {% endhighlight %}
 
 
+The data stored in flat text files where each line is one record:
+
+`@show raw data` 
+
+
+We need to read the data into R and convert it to data frame.
+
 {% highlight r %}
-dat <- readLines("~/projects/nutrition/scirep-cuisines-detail/epic_recipes.txt") %>%
+dat <- readLines("../data/epic_recipes.txt") %>%
   strsplit(split = "\t")
 
 cuisine <- sapply(dat, function(x) x[1])
@@ -27,16 +42,17 @@ cuisine_names <- cuisine %>% unique
 names(cuisine_names) <- cuisine_names
 
 food <- sapply(cuisine_names, function(x){
-  
   ingredients[cuisine == x] %>% paste(collapse = " ")
-  
-  })
+})
 {% endhighlight %}
+
+
+Convert it into feature matrix. One simple way to create features is to represent each cuisine by the number of times each ingredient has been used in it. This is essentially the standard _bag-of-word_ representation often used in text analytics.
 
 
 
 {% highlight r %}
-food_dtm = VectorSource(food) %>% VCorpus %>% DocumentTermMatrix
+food_dtm <- VectorSource(food) %>% VCorpus %>% DocumentTermMatrix
 
 food_df <- data.frame(cuisine = cuisine_names, stringsAsFactors=FALSE, row.names=NULL) %>% 
   cbind(as.matrix(food_dtm)) %>% tbl_df
@@ -51,17 +67,17 @@ food_tall <- food_tall %>% group_by(cuisine) %>%
   mutate(rank = min_rank(desc(count)))
 {% endhighlight %}
 
-Just an example:
-
+Once we have the feature matrix, we can use that to find the top ingredients used in each type of food?
+  
 
 {% highlight r %}
 # top N ingredients
 food_tall %>% filter(rank<=20) %>% ggplot +
-geom_tile(aes(ingredient, cuisine, fill = rank)) +
-scale_fill_gradient(low="gold", high="red") +
-theme_bw() +
-theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
-panel.grid = element_blank())
+  geom_tile(aes(ingredient, cuisine, fill = rank)) +
+  scale_fill_gradient(low="gold", high="red") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
+        panel.grid = element_blank())
 {% endhighlight %}
 
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-5-1.png) 
@@ -215,6 +231,7 @@ food_tall %>% filter(rank<=5) %>% arrange(cuisine, rank) %>% kable
 |Vietnamese              |cayenne         |    30|    5|
 |Vietnamese              |lime_juice      |    30|    5|
 
+If we use the number of unique ingredients used in different cuisine as a measure of _complexity_, we see that `@ABC` is the most complex and `@BAC` has the simplest recipies. 
 
 
 {% highlight r %}
@@ -262,11 +279,11 @@ food_tall %>% summarise(unique_ingredients = sum(count>0)) %>%
 
 ## Hierarchical Clustering
 Without standardizing:
-
+  
 
 {% highlight r %}
 norm_rows <- function(mat){
-mat / rowSums(mat)
+  mat / rowSums(mat)
 }
 
 hc <- data.frame(food_df, row.names = "cuisine")
@@ -277,14 +294,14 @@ hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "")
 
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-8-1.png) 
 
-We need to standardize rows prior to calculating dissimilarity:
-
+We need to be careful when using Euclidean distance to measure similarity. We need to standardize rows prior to calculating dissimilarity:
+  
 
 {% highlight r %}
 # need to standardize rows prior to calculating dissimilarity
 d <- hc %>% 
-norm_rows %>%
-dist
+  norm_rows %>%
+  dist
 
 #hclust(d) %>% plot(hang= -1)
 
@@ -302,7 +319,7 @@ food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2)
 ## D3 Forced Network
 
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-
+  
 
 {% highlight r %}
 create_nodes <- function(d, Group = NULL){
@@ -313,7 +330,7 @@ create_nodes <- function(d, Group = NULL){
   
   nodes
   
-  }
+}
 
 
 create_links <- function(d){
@@ -329,11 +346,11 @@ create_links <- function(d){
   # get rid of self-links and duplicates
   links <- links[!is.na(links$Value),] 
   links
-  }
+}
 {% endhighlight %}
 
 <div id="network1"></div>
-
+  
 
 {% highlight r %}
 nodes <- as.matrix(d) %>% 
@@ -460,9 +477,9 @@ links <- links %>% filter(Value < quantile(d,.4))
 {% endhighlight %}
 
 We now get this:
-
-<div id="network2"></div>
-
+  
+  <div id="network2"></div>
+  
 <style>
 .link {
 stroke: #666;
