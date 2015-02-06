@@ -200,14 +200,10 @@ food_tall %>% summarise(unique_ingredients = sum(count>0)) %>%
 {% endhighlight %}
 
 ## Hierarchical Clustering
-Without standardizing:
-  
+We now have everything we need to try and answer the question that motivated our analysis. We want to know which cuisine are the most similar in terms of their igredients. We can use a clustering algorithm and divide our samples into different clusters in an unsupervised fashion. In a problem like this where we don't have a predefined number of clusters in mind, hierarchical clustering is a good option. The algorithm starts by assigning each sample to its own cluster and then proceeds iteratively, at each stage joining the two most similar clusters, continuing until there is just a single cluster.
+
 
 {% highlight r %}
-norm_rows <- function(mat){
-  mat / rowSums(mat)
-}
-
 hc <- data.frame(food_df, row.names = "cuisine")
 
 # without standardizing
@@ -216,11 +212,17 @@ hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "")
 
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-10-1.png) 
 
+Th
+
 We need to be careful when using Euclidean distance to measure similarity. We need to standardize rows prior to calculating dissimilarity:
   
 
 {% highlight r %}
 # need to standardize rows prior to calculating dissimilarity
+norm_rows <- function(mat){
+  mat / rowSums(mat)
+}
+
 d <- hc %>% 
   norm_rows %>%
   dist
@@ -239,7 +241,7 @@ food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2)
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-11-1.png) 
 
 ## D3 Forced Network
-
+Another way to visualize. Helps us visualize the pairwise similarities between all samples in our data.
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
   
 
