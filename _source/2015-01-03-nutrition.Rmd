@@ -6,10 +6,6 @@ comments: True
 ---
 ```{r, echo=FALSE}
 library(knitr)
-library(dendextend)
-library(tidyr)
-library(ggplot2)
-library(d3Network)
 library(dplyr)
 ```
 <div class="message">
@@ -27,6 +23,7 @@ readLines("../data/epic_recipes.txt") %>% head(2)
 
 Before we can use this data in R, we need to read the data into R and convert it to a data frame. First, we combine all the recipes from the same cuisine type together to create a food corpus.
 ```{r}
+library(dplyr)
 # read each line
 dat <- readLines("../data/epic_recipes.txt") %>% strsplit(split = "\t")
 # extract cuisine and ingredients
@@ -65,20 +62,28 @@ food_tall <- food_df %>% gather("ingredient", "count", -cuisine)
 
 ## Looking at the Data
 Once we have the feature matrix, we can use that to find the top ingredients used in each type of food?
-  
+
 ```{r}
+library(ggplot2)
+
+N_top <- 10
 # calculate the ranking of each ingredient for each cuisine type
 food_tall <- food_tall %>% group_by(cuisine) %>% 
   mutate(rank = min_rank(desc(count)))
-# top N ingredients
-food_tall %>% filter(rank<=20) %>% ggplot +
-  geom_tile(aes(ingredient, cuisine, fill = rank)) +
-  scale_fill_gradient(low="gold", high="red") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
-        panel.grid = element_blank())
-```
 
+food_tall %>%
+  filter(rank<=N_top) %>% # top N ingredients
+  #   filter(rank>=.95) %>% # top N ingredients
+  #   mutate(ingredient = order_by(rank, as.factor(ingredients))) %>%
+  ggplot +
+  geom_point(aes(ingredient, cuisine, color = rank, size = rank)) +
+  scale_color_gradient(name = "Popularity", breaks=1:N_top,
+                       low="red", high="black") +
+  scale_size(name = "Popularity", breaks=1:N_top, range=c(6,1)) + 
+  guides(color = guide_legend()) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5, size = 11))
+```
+Looking across columns, we see that onion, garlic, wheat and butter have a pretty popular in almost all types of cuisine. Looking across rows, we  see that parmesan cheese, for example, is among the top the ingredients for Italian cuisine only and not the others.
 
 ```{r, results='asis'}
 # top ingredients
@@ -88,53 +93,99 @@ food_tall %>% filter(rank<=2) %>% arrange(cuisine, rank) %>% kable
 If we use the number of unique ingredients used in different cuisine as a measure of _complexity_, we see that `@ABC` is the most complex and `@BAC` has the simplest recipies. 
 
 ```{r, results='asis'}
+
+recipe_count <- table(cuisine) %>% as.data.frame.table(responseName = "recipe_count")
+
 # Number of unique ingredients
-food_tall %>% summarise(unique_ingredients = sum(count>0)) %>% 
-  arrange(desc(unique_ingredients)) %>% kable
-# add plot
+food_tall %>% 
+  
+#   left_join(recipe_count, by="cuisine") %>% 
+#   mutate(unique_ingredients = sum(count>0)/ recipe_count ) %>% 
+  
+  summarise(unique_ingredients = sum(count>0) ) %>% 
+  
+  arrange(desc(unique_ingredients)) %>% 
+  mutate(cuisine = factor(cuisine,
+                          levels = cuisine[order(rev(unique_ingredients))])) %>% 
+  ggplot + geom_bar(aes(cuisine, unique_ingredients),
+                    stat = "identity", fill = "gold",
+                    color = "brown", width = .7) +
+  theme(axis.text.x = element_text(angle=90, vjust = .5, hjust = 1))
+  
 ```
 
+This is not very accurate because number of unique ingredients is correlated with number of receipes we have for that cuisine. 
+
+```{r}
+food_tall %>% left_join(recipe_count) %>% 
+    mutate(unique_ingredients = sum(count>0) ) %>% 
+    arrange(desc(unique_ingredients)) %>% 
+  qplot(recipe_count, unique_ingredients, data = .) +
+  scale_x_log10()
+```
+So we can't really draw a conlcusion here.
+
 ## Hierarchical Clustering
-We now have everything we need to try and answer the question that motivated our analysis. We want to know which cuisine are the most similar in terms of their igredients. We can use a clustering algorithm and divide our samples into different clusters in an unsupervised fashion. In a problem like this where we don't have a predefined number of clusters in mind, hierarchical clustering is a good option. The algorithm starts by assigning each sample to its own cluster and then proceeds iteratively, at each stage joining the two most similar clusters, continuing until there is just a single cluster.
+We now have everything we need to try and answer the question that motivated our analysis. We want to know which cuisine are the most similar in terms of their igredients. We can use a clustering algorithm and divide our samples into different clusters in an unsupervised fashion. In a problem like this where we don't have a predefined number of clusters in mind, hierarchical clustering is a good option. The algorithm starts by assigning each sample to its own cluster and then proceeds iteratively, at each stage joining the two most similar clusters, continuing until there is just a single cluster. 
 
 ```{r}
 hc <- data.frame(food_df, row.names = "cuisine")
 
 # without standardizing
-hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "")
+hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "", main="", sub="")
 ```
 
-Th
-
-We need to be careful when using Euclidean distance to measure similarity. We need to standardize rows prior to calculating dissimilarity:
+One way to visualize the clustering results is using a [@dendogram]() (we can also use graphs as we will see next). The height of the dendogram is the distance (dissimilarity) between samples or joined clusters. By default, the `dist()` function in R uses a Eulcidean distance measure which get dominated by the variables with highest variance. To deal with this, we need to standardize our data prior to calculating the dissimilarity matrix. Intuitively, each row of the standardized data will contain numbers between 0 and 1 that capture the contribution of each ingredient to a given cuisine.
   
 ```{r}
+library(dendextend) # pretty dendograms
+
+mar_orig <- par("mar")
+par(mar=c(11,5,2,2)) # set the margines
+
 # need to standardize rows prior to calculating dissimilarity
 norm_rows <- function(mat){
   mat / rowSums(mat)
 }
 
+# distance matrix
 d <- hc %>% 
   norm_rows %>%
   dist
 
-#hclust(d) %>% plot(hang= -1)
-
 food_dend <- hclust(d) %>% as.dendrogram
 
-num_clusters <- 4
-food_dend %>% set("branches_k_color", k = num_clusters) %>% plot
+num_clusters <- 4 # highlight four clusters
+food_dend %>% set("branches_k_color", k = num_clusters) %>% plot(ylab="Distance")
 
 # add bounding boxes
 food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2)
 
+par(mar=mar_orig) # restore the margines
 ```
 
-## D3 Forced Network
-Another way to visualize. Helps us visualize the pairwise similarities between all samples in our data.
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-  
+Now, this is much better! It looks nicer and it makes much more sense. All the cuisine that we know as being similar are nicely grouped together in this dendogram. The hierarchy and how smaller clusters are joined to make bigger ones is also interesting. For example, we see that Moroccan and African foods are (obviously) very similar and together they form a cluster that is similar to Middle Eastern food. 
+
+It is also interesting how French cuisine turns out to be the most similar to Ameican cuisine. Sounds surprising? Remember that our analysis is based only on the ingredients used in the recipes and nothing else. We can examine the raw counts for the top ten ingredients to confirm:
+
 ```{r}
+food_tall %>% filter(cuisine %in% c("American", "French")) %>%
+  group_by(cuisine) %>% filter(min_rank(desc(count)) <= 10) %>% 
+  ungroup %>% spread(cuisine, count) %>% arrange(desc(American)) %>% 
+  kable
+```
+
+The top ten ingredients in French and American cuisine are indeed very similar.
+
+## Using D3 forced network to visualize the clusters
+
+We can also use a graph to visualize the pairwise distance matrix that we calculated and used as input for clustering.
+
+We are going to use a [force-directed network graph in D3](https://github.com/mbostock/d3/wiki/Force-Layout) for this visualization. Each node in the graph represents one cuisine and the length of the edges connecting these nodes is  proportional to the distance between nodes. To better "uncover" the hidden clusters in the data, I pruned the graph by removing the edges between nodes that are sufficiently far from each other (only keeping the top 40% of edges). 
+
+The graph representation makes it easier to visually detect clusters in the data. For comparison, the nodes of the graph are colored based on the the four clusters that we previously identified using hierarchical clustering.
+  
+```{r, echo=FALSE}
 create_nodes <- function(d, Group = NULL){
   # d: dissimilarity matrix with row names
   if (is.null(Group)) Group <- 1 # all in the same group
@@ -150,11 +201,14 @@ create_links <- function(d){
   node_names <- rownames(d)
   
   d[upper.tri(d, diag = T)] <- NA
-  links <- as.data.frame.table(d, responseName = "Value", stringsAsFactors = FALSE)
+  links <- as.data.frame.table(d, responseName = "Value",
+                               stringsAsFactors = FALSE)
   colnames(links)[1:2] <- c("Source", "Target")
   
-  links$Source <- factor(links$Source, levels = node_names) %>% as.numeric %>% "-"(1)
-  links$Target <- factor(links$Target, levels = node_names) %>% as.numeric %>% "-"(1)
+  links$Source <- factor(links$Source, levels = node_names) %>% 
+    as.numeric %>% "-"(1)
+  links$Target <- factor(links$Target, levels = node_names) %>% 
+    as.numeric %>% "-"(1)
   
   # get rid of self-links and duplicates
   links <- links[!is.na(links$Value),] 
@@ -163,14 +217,19 @@ create_links <- function(d){
 
 ```
 
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <div id="network1"></div>
   
 ```{r, results='asis'}
+library(d3Network)
 nodes <- as.matrix(d) %>% 
   create_nodes(Group = cutree(food_dend, k = num_clusters))
 
 links <-  as.matrix(d) %>% 
   create_links
+
+# prune the graph. remove 60% of the links based on distance.
+links <- links %>% filter(Value < quantile(d,.4))
 
 d3ForceNetwork(Links = links, Nodes = nodes, Source = "Source",
                Target = "Target", Value = "Value", NodeID = "Name",
@@ -184,26 +243,11 @@ d3ForceNetwork(Links = links, Nodes = nodes, Source = "Source",
 
 ```
 
-
-Not very clear. What if we prune?
-```{r}
-links <- links %>% filter(Value < quantile(d,.4))
-```
-
-We now get this:
-  
-  <div id="network2"></div>
-  
-```{r, echo=FALSE, results='asis'}
-d3ForceNetwork(Links = links, Nodes = nodes, Source = "Source",
-               Target = "Target", Value = "Value", NodeID = "Name",
-               Group = "Group",
-               linkDistance = "function(d) { return 1000 * d.value + 10; }",
-               linkWidth = "function(d) { return 1/(10*d.value); }",
-               charge = -250,
-               opacity = 1, 
-               standAlone = FALSE,
-               parentElement = "div#network2")
-```
+Feel free to checkout the [source]() for this post to see all the code for preparing the data for D3 visualization.
 
 
+## Todo
+
+- fix links
+- fix long tables
+- order the dot plot?
