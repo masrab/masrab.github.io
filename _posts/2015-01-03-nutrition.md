@@ -145,7 +145,7 @@ hc %>% dist %>% hclust %>% plot(hang= -1, xlab = "", main="Clustering without st
 
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-10-1.png) 
 
-One way to visualize the clustering results is using a [dendogram](http://en.wikipedia.org/wiki/Dendrogram) (we can also use graphs as we will see next). The height of the dendogram is the distance (dissimilarity) between samples or joined clusters. By default, the `dist()` function in R uses a Euclidean distance measure which get dominated by the variables with highest variance. To deal with this, we need to standardize our data prior to calculating the dissimilarity matrix. Intuitively, each row of the standardized data will contain numbers between 0 and 1 that capture the contribution of each ingredient to a given cuisine.
+One way to visualize the clustering results is using a [dendogram](http://en.wikipedia.org/wiki/Dendrogram) (we can also use graphs as we will see next). The height of the dendogram is the distance (dissimilarity) between samples or joined clusters. By default, the `dist()` function in R uses a Euclidean distance measure which gets dominated by the variables with highest variance. To deal with this, we need to standardize our data prior to calculating the dissimilarity matrix. Intuitively, each row of the standardized data will contain numbers between 0 and 1 that capture the contribution of each ingredient to a given cuisine.
 
 
 {% highlight r %}
@@ -176,7 +176,7 @@ food_dend %>% rect.dendrogram(k=num_clusters, border = 8, lty = 5, lwd = 2, lowe
 ![center](/../images/2015-01-03-nutrition/unnamed-chunk-11-1.png) 
 
 
-Now, this is much better! It looks nicer and it makes much more sense. All the cuisine that we know as being similar are nicely grouped together in this dendogram. The hierarchy and how smaller clusters are joined to make bigger ones is also interesting. For example, we see that Moroccan and African foods are (obviously) very similar and together they form a cluster that is similar to Middle Eastern food. 
+Now, this is much better! It looks nicer and it makes much more sense. All the cuisines that we know as being similar are nicely grouped together in this dendogram. The hierarchy and how smaller clusters are joined to make bigger ones is also interesting. For example, we see that Moroccan and African foods are (obviously) very similar and together they form a cluster that is similar to Middle Eastern food. 
 
 It is also interesting how French cuisine turns out to be the most similar to American cuisine. Sounds surprising? Remember that our analysis is based only on the ingredients used in the recipes and nothing else. We can examine the raw counts for the top ten ingredients to confirm:
 
@@ -215,7 +215,7 @@ We can also use a graph to visualize the pairwise distance matrix that we calcul
 
 We are going to use a [force-directed network graph in D3](https://github.com/mbostock/d3/wiki/Force-Layout) for this visualization. Each node in the graph represents one cuisine and the length of the edges connecting these nodes is  proportional to the distance between nodes. To better "uncover" the hidden clusters in the data, I pruned the graph by removing the edges between nodes that are sufficiently far from each other (only keeping the top 40% of edges). 
 
-The graph representation makes it easier to visually detect clusters in the data. For comparison, the nodes of the graph are colored based on the the four clusters that we previously identified using hierarchical clustering.
+The graph representation makes it easier to visually detect clusters in the data. For comparison, the nodes of the graph are colored based on the four clusters that we previously identified using hierarchical clustering.
 
 
 
